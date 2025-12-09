@@ -392,7 +392,40 @@ async function drawPaths() {
     }
 }
 
+// ============================================
+// FULL TIME DIFFERENCE FUNCTION (Y M D H M S)
+// ============================================
+function diffYMDHMS(startDate, endDate) {
+    let s = new Date(startDate);
+    let e = new Date(endDate);
 
+    if (s > e) [s, e] = [e, s];
+
+    let years  = e.getFullYear() - s.getFullYear();
+    let months = e.getMonth() - s.getMonth();
+    let days   = e.getDate() - s.getDate();
+    let hours  = e.getHours() - s.getHours();
+    let mins   = e.getMinutes() - s.getMinutes();
+    let secs   = e.getSeconds() - s.getSeconds();
+
+    // Normalize
+    if (secs < 0) { secs += 60; mins--; }
+    if (mins < 0) { mins += 60; hours--; }
+    if (hours < 0) { hours += 24; days--; }
+
+    if (days < 0) {
+        const prevMonthDays = new Date(e.getFullYear(), e.getMonth(), 0).getDate();
+        days += prevMonthDays;
+        months--;
+    }
+
+    if (months < 0) {
+        months += 12;
+        years--;
+    }
+
+    return { years, months, days, hours, mins, secs };
+}
 
 // TIME DIFFERENCE CALCULATION
 function updateTimeDifferences() {
@@ -404,10 +437,14 @@ function updateTimeDifferences() {
     const first = arr[0].dateObj;
     const last = arr[arr.length - 1].dateObj;
 
-    const diffMs = last - first;
-    const min = Math.floor(diffMs / 60000);
+    // Use full Y M D H M S difference
+    const diff = diffYMDHMS(first, last);
 
-    document.getElementById("timeDifference").innerText = `${min} minutes`;
+    const formatted = 
+        `${diff.years}y ${diff.months}m ${diff.days}d ` +
+        `${diff.hours}h ${diff.mins}m ${diff.secs}s`;
+
+    document.getElementById("timeDifference").innerText = formatted;
     document.getElementById("timeInfo").style.display = "block";
 }
 
