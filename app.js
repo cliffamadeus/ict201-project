@@ -1,7 +1,7 @@
 class PhotoNode {
     constructor(photo) {
-        this.data = photo;   // photo object
-        this.next = null;    // next node
+        this.data = photo;
+        this.next = null;
     }
 }
 
@@ -11,30 +11,35 @@ class PhotoLinkedList {
         this.length = 0;
     }
 
-    insert(photo) {  
-        const newNode = new PhotoNode(photo);
-
+    insert(photo) {
+        const node = new PhotoNode(photo);
         if (!this.head) {
-            this.head = newNode;
+            this.head = node;
         } else {
-            let current = this.head;
-            while (current.next !== null) {
-                current = current.next;
-            }
-            current.next = newNode;
+            let cur = this.head;
+            while (cur.next) cur = cur.next;
+            cur.next = node;
         }
-
         this.length++;
     }
 
-    toArray() {
-        const arr = [];
-        let current = this.head;
-        while (current !== null) {
-            arr.push(current.data);
-            current = current.next;
+    removeLast() {
+        if (!this.head) return null;
+
+        if (!this.head.next) {
+            const removed = this.head.data;
+            this.head = null;
+            this.length--;
+            return removed;
         }
-        return arr;
+
+        let cur = this.head;
+        while (cur.next.next) cur = cur.next;
+
+        const removed = cur.next.data;
+        cur.next = null;
+        this.length--;
+        return removed;
     }
 
     clear() {
@@ -43,103 +48,103 @@ class PhotoLinkedList {
     }
 
     findById(id) {
-        let current = this.head;
-        while (current !== null) {
-            if (current.data.id === id) return current.data;
-            current = current.next;
+        let cur = this.head;
+        while (cur) {
+            if (cur.data.id == id) return cur.data;
+            cur = cur.next;
         }
         return null;
     }
 
-    forEach(callback) {
-        let current = this.head;
-        while (current !== null) {
-            callback(current.data);
-            current = current.next;
+    forEach(cb) {
+        let cur = this.head;
+        while (cur) {
+            cb(cur.data);
+            cur = cur.next;
         }
+    }
+
+    toArray() {
+        const arr = [];
+        this.forEach(p => arr.push(p));
+        return arr;
     }
 }
 
-// GLOBAL VARIABLES
-const myMap = L.map('map').setView([11.635230398105993, 123.70790316297406], 5);
-const photoList = new PhotoLinkedList();   // ⬅ Linked list replaces array
+/* ================= GLOBALS ================= */
+
+const photoList = new PhotoLinkedList();
+const undoStack = [];
+const redoStack = [];
+
 let markers = [];
 let pathPolyline = null;
-let totalDistance = 0;
-const loadingSpinner = document.getElementById('loadingSpinner');
 
-// MAP INITIALIZATION
+const myMap = L.map('map').setView([11.63523, 123.7079], 5);
+const spinner = document.getElementById("loadingSpinner");
+
+/* ================= MAP ================= */
+
 function initMap() {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap'
+        maxZoom: 19
     }).addTo(myMap);
 }
 
-// HANDLE IMAGE INPUT
+document.addEventListener("DOMContentLoaded", initMap);
+
+/* ================= IMAGE INPUT ================= */
+
 async function handleImageInput(input) {
-    if (!input.files || input.files.length === 0) return;
+    if (!input.files.length) return;
 
-    if (input.files.length > 1) clearMap(false);
+    spinner.style.display = "block";
 
-    loadingSpinner.style.display = 'block';
-
-    for (let i = 0; i < input.files.length; i++) {
-        await processImageFile(input.files[i]);
+    for (const file of input.files) {
+        await processImage(file);
     }
 
-    updatePhotoCards();
-    await drawPaths();
-    updateTimeDifferences();
-
-    loadingSpinner.style.display = 'none';
+    spinner.style.display = "none";
+    refreshUI();
 }
 
-// PROCESS EACH IMAGE FILE
-async function processImageFile(file) {
+function processImage(file) {
     return new Promise(resolve => {
         const reader = new FileReader();
 
-        reader.onload = function (e) {
+        reader.onload = e => {
             EXIF.getData(file, function () {
 
                 const lat = EXIF.getTag(this, "GPSLatitude");
                 const lon = EXIF.getTag(this, "GPSLongitude");
-                const date = EXIF.getTag(this, "DateTimeOriginal");
-
                 if (!lat || !lon) return resolve();
 
                 const latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
                 const lonRef = EXIF.getTag(this, "GPSLongitudeRef") || "W";
 
-                const calculatedLat =
-                    (lat[0] + lat[1] / 60 + lat[2] / 3600) *
-                    (latRef === "N" ? 1 : -1);
-
-                const calculatedLon =
-                    (lon[0] + lon[1] / 60 + lon[2] / 3600) *
-                    (lonRef === "W" ? -1 : 1);
+                const calcLat = (lat[0] + lat[1]/60 + lat[2]/3600) * (latRef === "N" ? 1 : -1);
+                const calcLon = (lon[0] + lon[1]/60 + lon[2]/3600) * (lonRef === "W" ? -1 : 1);
 
                 let dateObj = null;
+                const date = EXIF.getTag(this, "DateTimeOriginal");
                 if (date) {
-                    const parts = date.split(" ");
-                    const dateString = parts[0].replace(/:/g, "-") + "T" + parts[1];
-                    dateObj = new Date(dateString);
+                    const [d,t] = date.split(" ");
+                    dateObj = new Date(d.replace(/:/g,"-") + "T" + t);
                 }
 
                 const photo = {
                     id: Date.now() + Math.random(),
-                    file,
                     src: e.target.result,
-                    lat: calculatedLat,
-                    lon: calculatedLon,
+                    lat: calcLat,
+                    lon: calcLon,
                     dateObj,
-                    formattedDate: dateObj ? dateObj.toLocaleString() : "Unknown",
-                    filename: file.name
+                    filename: file.name,
+                    formattedDate: dateObj ? dateObj.toLocaleString() : "Unknown"
                 };
 
-                // INSERT INTO LINKED LIST HERE
                 photoList.insert(photo);
+                undoStack.push(photo);
+                redoStack.length = 0;
 
                 resolve();
             });
@@ -149,170 +154,130 @@ async function processImageFile(file) {
     });
 }
 
-// UPDATE PHOTO CARDS FROM LINKED LIST
+/* ================= UNDO / REDO ================= */
+
+function undoAdd() {
+    if (!undoStack.length) return;
+
+    const removed = photoList.removeLast();
+    if (!removed) return;
+
+    redoStack.push(removed);
+    refreshUI();
+}
+
+function redoAdd() {
+    if (!redoStack.length) return;
+
+    const photo = redoStack.pop();
+    photoList.insert(photo);
+    undoStack.push(photo);
+    refreshUI();
+}
+
+/* ================= UI ================= */
+
+function refreshUI() {
+    updatePhotoCards();
+    drawPaths();
+    updateTimeDiff();
+}
+
 function updatePhotoCards() {
     const container = document.getElementById("photoCards");
     container.innerHTML = "";
 
-    photoList.forEach(photo => {
+    photoList.forEach(p => {
         const card = document.createElement("div");
-        card.className = "col photo-card";
-        card.setAttribute("onclick", `focusOnPhoto('${photo.id}')`);
+        card.className = "photo-card";
+        card.onclick = () => focusOnPhoto(p.id);
 
         card.innerHTML = `
-            <div class="row g-0">
-                <div class="col-8">
-                    <img src="${photo.src}" class="fixed-img" />
-                </div>
-                <div class="col-4 p-2">
-                    <strong>${photo.filename}</strong><br>
-                    ${photo.formattedDate}<br>
-                    <small>${photo.lat.toFixed(6)}, ${photo.lon.toFixed(6)}</small>
-                </div>
-            </div>
+            <img src="${p.src}" class="fixed-img">
+            <strong>${p.filename}</strong><br>
+            ${p.formattedDate}<br>
+            <small>${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}</small>
             <hr>
         `;
+
         container.appendChild(card);
     });
 }
 
-// FOCUS ON A PHOTO  
+/* ================= MAP DRAW ================= */
+
 function focusOnPhoto(id) {
-    const photo = photoList.findById(id);
-    if (!photo) return;
+    const p = photoList.findById(id);
+    if (!p) return;
 
-    myMap.setView([photo.lat, photo.lon], 15);
-
-    const marker = markers.find(m => m.photoId == id);
-    if (marker) marker.openPopup();
+    myMap.setView([p.lat, p.lon], 15);
+    const m = markers.find(x => x.photoId == id);
+    if (m) m.openPopup();
 }
 
-// DRAW PATHS USING LINKED LIST  
 async function drawPaths() {
     markers.forEach(m => myMap.removeLayer(m));
     markers = [];
-
-    if (pathPolyline) {
-        myMap.removeLayer(pathPolyline);
-        pathPolyline = null;
-    }
+    if (pathPolyline) myMap.removeLayer(pathPolyline);
 
     const arr = photoList.toArray();
-    if (arr.length < 1) return;
+    if (!arr.length) return;
 
-    // Sort by date
-    arr.sort((a, b) => a.dateObj - b.dateObj);
+    arr.sort((a,b) => (a.dateObj || 0) - (b.dateObj || 0));
 
-    arr.forEach(photo => {
-        const marker = L.marker([photo.lat, photo.lon])
+    arr.forEach(p => {
+        const m = L.marker([p.lat, p.lon])
             .addTo(myMap)
-            .bindPopup(`<b>${photo.filename}</b><br>${photo.formattedDate}`);
-        marker.photoId = photo.id;
-        markers.push(marker);
+            .bindPopup(`<b>${p.filename}</b><br>${p.formattedDate}`);
+        m.photoId = p.id;
+        markers.push(m);
     });
 
     if (arr.length < 2) return;
 
-    const coords = arr.map(p => `${p.lon},${p.lat}`).join(';');
+    const coords = arr.map(p => `${p.lon},${p.lat}`).join(";");
 
     try {
-        const res = await fetch(
-            `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`
-        );
+        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`);
         const data = await res.json();
-
         const path = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-
-        pathPolyline = L.polyline(path, { color: "blue", weight: 4 })
-            .addTo(myMap);
-
+        pathPolyline = L.polyline(path, {color:"blue", weight:4}).addTo(myMap);
         myMap.fitBounds(pathPolyline.getBounds());
-
-    } catch (e) {
-        console.log("OSRM failed, drawing straight lines.");
-
+    } catch {
         const fallback = arr.map(p => [p.lat, p.lon]);
-        pathPolyline = L.polyline(fallback, { color: "red", weight: 3 })
-            .addTo(myMap);
-
+        pathPolyline = L.polyline(fallback, {color:"red"}).addTo(myMap);
         myMap.fitBounds(pathPolyline.getBounds());
     }
 }
 
-// TIME DIFFERENCE FUNCTION (Y M D H M S)
-function diffYMDHMS(startDate, endDate) {
-    let s = new Date(startDate);
-    let e = new Date(endDate);
+/* ================= TIME ================= */
 
-    if (s > e) [s, e] = [e, s];
-
-    let years  = e.getFullYear() - s.getFullYear();
-    let months = e.getMonth() - s.getMonth();
-    let days   = e.getDate() - s.getDate();
-    let hours  = e.getHours() - s.getHours();
-    let mins   = e.getMinutes() - s.getMinutes();
-    let secs   = e.getSeconds() - s.getSeconds();
-
-    // Normalize
-    if (secs < 0) { secs += 60; mins--; }
-    if (mins < 0) { mins += 60; hours--; }
-    if (hours < 0) { hours += 24; days--; }
-
-    if (days < 0) {
-        const prevMonthDays = new Date(e.getFullYear(), e.getMonth(), 0).getDate();
-        days += prevMonthDays;
-        months--;
-    }
-
-    if (months < 0) {
-        months += 12;
-        years--;
-    }
-
-    return { years, months, days, hours, mins, secs };
-}
-
-// TIME DIFFERENCE CALCULATION
-function updateTimeDifferences() {
+function updateTimeDiff() {
     const arr = photoList.toArray().filter(p => p.dateObj);
     if (arr.length < 2) return;
 
-    arr.sort((a, b) => a.dateObj - b.dateObj);
+    arr.sort((a,b) => a.dateObj - b.dateObj);
+    const diff = Math.abs(arr[arr.length-1].dateObj - arr[0].dateObj);
+    const mins = Math.floor(diff / 60000);
 
-    const first = arr[0].dateObj;
-    const last = arr[arr.length - 1].dateObj;
-
-    // Use full Y M D H M S difference
-    const diff = diffYMDHMS(first, last);
-
-    const formatted = 
-        `${diff.years}y ${diff.months}m ${diff.days}d ` +
-        `${diff.hours}h ${diff.mins}m ${diff.secs}s`;
-
-    document.getElementById("timeDifference").innerText = formatted;
+    document.getElementById("timeDifference").innerText = mins + " minutes";
     document.getElementById("timeInfo").style.display = "block";
 }
 
-// CLEAR MAP + LINKED LIST
-function clearMap(resetInput = true) {
+/* ================= CLEAR ================= */
+
+function clearMap(reset = true) {
     markers.forEach(m => myMap.removeLayer(m));
     markers = [];
+    if (pathPolyline) myMap.removeLayer(pathPolyline);
 
-    if (pathPolyline) {
-        myMap.removeLayer(pathPolyline);
-        pathPolyline = null;
-    }
-
-    // CLEAR LINKED LIST  
     photoList.clear();
+    undoStack.length = 0;
+    redoStack.length = 0;
 
     document.getElementById("photoCards").innerHTML = "";
-    document.getElementById("pathInfo").style.display = "none";
     document.getElementById("timeInfo").style.display = "none";
 
-    if (resetInput) document.getElementById("imageInput").value = "";
-
-    myMap.setView([11.635230398105993, 123.70790316297406], 5);
+    if (reset) document.getElementById("imageInput").value = "";
+    myMap.setView([11.63523, 123.7079], 5);
 }
-
-document.addEventListener("DOMContentLoaded", initMap);
