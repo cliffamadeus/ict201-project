@@ -90,14 +90,6 @@
         <div class="card-header text-bg-light">
             <h5 class="card-title mb-0">EXIF Photo Plotter with Road Paths</h5>
         </div>
-                <div class="btn-group mt-3">
-            <button class="btn btn-secondary" onclick="undoAdd()">
-                <i class="bi bi-arrow-counterclockwise"></i> Undo
-            </button>
-            <button class="btn btn-secondary" onclick="redoAdd()">
-                <i class="bi bi-arrow-clockwise"></i> Redo
-            </button>
-        </div>
 
         <div class="card-body">
             <div class="row">
@@ -129,13 +121,22 @@
                             </div>
                         </div>
                     </div>
-                  
-                     
                      <h5 style="margin-top: 1rem;">Photo Gallery</h5>
                     <div id="photoCards"></div>
                 </div>
                 <div class="col-md-8">
-                     <!-- Map Section -->
+                    <!-- Map Section -->
+
+                        <!--Undo Redo Functions-->
+                        <div class="btn-group mt-3">
+                            <button class="btn btn-secondary" onclick="undoAdd()">
+                                <i class="bi bi-arrow-counterclockwise"></i> Undo
+                            </button>
+                            <button class="btn btn-secondary" onclick="redoAdd()" style="margin-left:5px">
+                                <i class="bi bi-arrow-clockwise"></i> Redo
+                            </button>
+                        </div>
+                        
                     <button id="clearButton" class="btn btn-danger mt-3" type="button" onclick="clearMap()">Clear Map</button>
                     <div id="map" class="mt-5"></div>
                 </div>
