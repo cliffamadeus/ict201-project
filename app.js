@@ -193,11 +193,20 @@ function updatePhotoCards() {
         card.onclick = () => focusOnPhoto(p.id);
 
         card.innerHTML = `
-            <img src="${p.src}" class="fixed-img">
-            <strong>${p.filename}</strong><br>
-            ${p.formattedDate}<br>
-            <small>${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}</small>
-            <hr>
+            <div class="row">
+                <div class="col-4">
+                    <img src="${p.src}" class="fixed-img">
+                </div>
+                <div class="col-8">
+                    <strong>${p.filename}</strong><br>
+                    ${p.formattedDate}<br>
+                    <small>${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}</small>
+                    <hr>
+                </div>
+                
+            </div>
+            
+            
         `;
 
         container.appendChild(card);
