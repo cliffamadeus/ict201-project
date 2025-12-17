@@ -14,78 +14,9 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0d6efd">
 
-    <style>
-        .main {
-            width: 95%;
-            margin-left: 3%;
-            justify-content: center;
-        }
-        .image-preview {
-            width: 200px;
-        }
-        .image-section {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-        }
-        #photoCards {
-            max-height: 500px;
-            overflow-y: auto;
-            margin-top: 15px;
-            padding: 10px;
-        }
-        .photo-card {
-            cursor: pointer;
-            margin-bottom: 10px;
-            padding: 10px;
-            transition: all 0.2s;
-        }
-        .photo-card:hover {
-            background-color: #f8f9fa;
-        }
-        .photo-card img {
-            width: 100%;
-            height: auto;
-            border-radius: 3px;
-        }
-        .photo-card.active {
-            background-color: #e9f7fe;
-            border-color: #86b7fe;
-        }
-        .path-info {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-radius: 5px;
-        }
-        #map {
-            height: 500px;
-        }
-        .time-info {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-radius: 5px;
-        }
-        .loading-spinner {
-            display: none;
-            margin-top: 10px;
-        }
-        .fixed-img {
-            width: 100%;
-            height: 150px;
-            object-fit: cover;
-        }
+    <script src="https://d3js.org/d3.v7.min.js"></script>
 
-        @media (min-width: 768px) {
-            .fixed-img {
-            height: 200px;
-            }
-        }
-                
-    </style>
+    <link href="style.css" rel="stylesheet">
 </head>
 
 <body>
@@ -144,88 +75,39 @@
                         <strong>Time Between Photos:</strong> <span id="timeDifference">N/A</span>
                     </div>
                     <div id="map" class="mt-5"></div>
+                    <div class="card mt-4">
+                    <div class="card-header">
+                        <strong>Photo Node Visualization</strong>
+                    </div>
+                    <div class="card-body">
+                        <svg id="nodeGraph" width="100%" height="300"></svg>
+                    </div>
+                    </div>
+
                 </div>
             </div>
         </div>
     </div>
 </div>
-
 <script>
-class PhotoNode {
-    constructor(photo) {
-        this.data = photo;
-        this.next = null;
-    }
-}
-
-class PhotoLinkedList {
-    constructor() {
-        this.head = null;
-        this.length = 0;
-    }
-
-    insert(photo) {
-        const node = new PhotoNode(photo);
-        if (!this.head) {
-            this.head = node;
-        } else {
-            let cur = this.head;
-            while (cur.next) cur = cur.next;
-            cur.next = node;
-        }
-        this.length++;
-    }
-
-    removeLast() {
-        if (!this.head) return null;
-
-        if (!this.head.next) {
-            const removed = this.head.data;
-            this.head = null;
-            this.length--;
-            return removed;
-        }
-
-        let cur = this.head;
-        while (cur.next.next) cur = cur.next;
-
-        const removed = cur.next.data;
-        cur.next = null;
-        this.length--;
-        return removed;
-    }
-
-    clear() {
-        this.head = null;
-        this.length = 0;
-    }
-
-    findById(id) {
-        let cur = this.head;
-        while (cur) {
-            if (cur.data.id == id) return cur.data;
-            cur = cur.next;
-        }
-        return null;
-    }
-
-    forEach(cb) {
-        let cur = this.head;
-        while (cur) {
-            cb(cur.data);
-            cur = cur.next;
-        }
-    }
-
-    toArray() {
-        const arr = [];
-        this.forEach(p => arr.push(p));
-        return arr;
-    }
-}
+/*
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(reg => console.log('Service Worker registered:', reg.scope))
+      .catch(err => console.error('Service Worker failed:', err));
+  });
+}*/
+</script>
+<script src="photo-nodes.js"></script>
+<script src="stack.js"></script>
+<script src="img-input.js"></script>
+<script src="draw-map.js"></script>
+<script src="d3-graph.js"></script>
+<script>
+console.log("Script Added");
 
 /* ================= GLOBALS ================= */
-
 const photoList = new PhotoLinkedList();
 const undoStack = [];
 const redoStack = [];
@@ -246,95 +128,15 @@ function initMap() {
 
 document.addEventListener("DOMContentLoaded", initMap);
 
-/* ================= IMAGE INPUT ================= */
-
-async function handleImageInput(input) {
-    if (!input.files.length) return;
-
-    spinner.style.display = "block";
-
-    for (const file of input.files) {
-        await processImage(file);
-    }
-
-    spinner.style.display = "none";
-    refreshUI();
-}
-
-function processImage(file) {
-    return new Promise(resolve => {
-        const reader = new FileReader();
-
-        reader.onload = e => {
-            EXIF.getData(file, function () {
-
-                const lat = EXIF.getTag(this, "GPSLatitude");
-                const lon = EXIF.getTag(this, "GPSLongitude");
-                if (!lat || !lon) return resolve();
-
-                const latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
-                const lonRef = EXIF.getTag(this, "GPSLongitudeRef") || "W";
-
-                const calcLat = (lat[0] + lat[1]/60 + lat[2]/3600) * (latRef === "N" ? 1 : -1);
-                const calcLon = (lon[0] + lon[1]/60 + lon[2]/3600) * (lonRef === "W" ? -1 : 1);
-
-                let dateObj = null;
-                const date = EXIF.getTag(this, "DateTimeOriginal");
-                if (date) {
-                    const [d,t] = date.split(" ");
-                    dateObj = new Date(d.replace(/:/g,"-") + "T" + t);
-                }
-
-                const photo = {
-                    id: Date.now() + Math.random(),
-                    src: e.target.result,
-                    lat: calcLat,
-                    lon: calcLon,
-                    dateObj,
-                    filename: file.name,
-                    formattedDate: dateObj ? dateObj.toLocaleString() : "Unknown"
-                };
-
-                photoList.insert(photo);
-                undoStack.push(photo);
-                redoStack.length = 0;
-
-                resolve();
-            });
-        };
-
-        reader.readAsDataURL(file);
-    });
-}
-
-/* ================= UNDO / REDO ================= */
-
-function undoAdd() {
-    if (!undoStack.length) return;
-
-    const removed = photoList.removeLast();
-    if (!removed) return;
-
-    redoStack.push(removed);
-    refreshUI();
-}
-
-function redoAdd() {
-    if (!redoStack.length) return;
-
-    const photo = redoStack.pop();
-    photoList.insert(photo);
-    undoStack.push(photo);
-    refreshUI();
-}
-
 /* ================= UI ================= */
 
 function refreshUI() {
     updatePhotoCards();
     drawPaths();
     updateTimeDiff();
+    renderNodeGraph(); 
 }
+
 
 function updatePhotoCards() {
     const container = document.getElementById("photoCards");
@@ -366,108 +168,53 @@ function updatePhotoCards() {
     });
 }
 
-/* ================= MAP DRAW ================= */
-
-function focusOnPhoto(id) {
-    const p = photoList.findById(id);
-    if (!p) return;
-
-    myMap.setView([p.lat, p.lon], 15);
-    const m = markers.find(x => x.photoId == id);
-    if (m) m.openPopup();
-}
-
-async function drawPaths() {
-    // Clear old layers
-    markers.forEach(m => myMap.removeLayer(m));
-    markers = [];
-    if (areaPolygon) myMap.removeLayer(areaPolygon);
-
-    const arr = photoList.toArray();
-    if (!arr.length) return;
-
-    // Sort by time (optional but useful)
-    arr.sort((a, b) => (a.dateObj || 0) - (b.dateObj || 0));
-
-    // Add markers
-    arr.forEach(p => {
-        const m = L.marker([p.lat, p.lon])
-            .addTo(myMap)
-            .bindPopup(`<b>${p.filename}</b><br>${p.formattedDate}`);
-        m.photoId = p.id;
-        markers.push(m);
-    });
-
-    // Need at least 3 points for polygon
-    if (arr.length < 3) return;
-
-    // Convert to [lat, lon]
-    const points = arr.map(p => [p.lat, p.lon]);
-
-    // Compute convex hull
-    const hull = convexHull(points);
-
-    // Draw polygon
-    areaPolygon = L.polygon(hull, {
-        color: "green",
-        fillColor: "#3cb371",
-        fillOpacity: 0.3,
-        weight: 3
-    }).addTo(myMap);
-
-    myMap.fitBounds(areaPolygon.getBounds());
-}
-
-function convexHull(points) {
-    if (points.length <= 3) return points;
-
-    // Sort points by latitude, then longitude
-    points = points.slice().sort((a, b) =>
-        a[0] === b[0] ? a[1] - b[1] : a[0] - b[0]
-    );
-
-    const cross = (o, a, b) =>
-        (a[0] - o[0]) * (b[1] - o[1]) -
-        (a[1] - o[1]) * (b[0] - o[0]);
-
-    const lower = [];
-    for (const p of points) {
-        while (lower.length >= 2 &&
-            cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
-            lower.pop();
-        }
-        lower.push(p);
-    }
-
-    const upper = [];
-    for (let i = points.length - 1; i >= 0; i--) {
-        const p = points[i];
-        while (upper.length >= 2 &&
-            cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
-            upper.pop();
-        }
-        upper.push(p);
-    }
-
-    upper.pop();
-    lower.pop();
-    return lower.concat(upper);
-}
-
-
-/* ================= TIME ================= */
-
 function updateTimeDiff() {
     const arr = photoList.toArray().filter(p => p.dateObj);
     if (arr.length < 2) return;
 
-    arr.sort((a,b) => a.dateObj - b.dateObj);
-    const diff = Math.abs(arr[arr.length-1].dateObj - arr[0].dateObj);
-    const mins = Math.floor(diff / 60000);
+    arr.sort((a, b) => a.dateObj - b.dateObj);
+    const diffMs = Math.abs(arr[arr.length - 1].dateObj - arr[0].dateObj);
 
-    document.getElementById("timeDifference").innerText = mins + " minutes";
+    let remaining = diffMs;
+
+    const msPerMinute = 60 * 1000;
+    const msPerHour = 60 * msPerMinute;
+    const msPerDay = 24 * msPerHour;
+    const msPerWeek = 7 * msPerDay;
+    const msPerMonth = 30 * msPerDay; // approximate
+    const msPerYear = 365 * msPerDay; // approximate
+
+    const years = Math.floor(remaining / msPerYear);
+    remaining %= msPerYear;
+
+    const months = Math.floor(remaining / msPerMonth);
+    remaining %= msPerMonth;
+
+    const weeks = Math.floor(remaining / msPerWeek);
+    remaining %= msPerWeek;
+
+    const days = Math.floor(remaining / msPerDay);
+    remaining %= msPerDay;
+
+    const hours = Math.floor(remaining / msPerHour);
+    remaining %= msPerHour;
+
+    const minutes = Math.floor(remaining / msPerMinute);
+
+    const parts = [];
+    if (years) parts.push(`${years} year${years > 1 ? 's' : ''}`);
+    if (months) parts.push(`${months} month${months > 1 ? 's' : ''}`);
+    if (weeks) parts.push(`${weeks} week${weeks > 1 ? 's' : ''}`);
+    if (days) parts.push(`${days} day${days > 1 ? 's' : ''}`);
+    if (hours) parts.push(`${hours} hour${hours > 1 ? 's' : ''}`);
+    if (minutes) parts.push(`${minutes} mins${minutes > 1 ? 's' : ''}`);
+
+    const formatted = parts.join(' ') || '0 min';
+
+    document.getElementById("timeDifference").innerText = formatted;
     document.getElementById("timeInfo").style.display = "block";
 }
+
 
 /* ================= CLEAR ================= */
 
@@ -486,18 +233,11 @@ function clearMap(reset = true) {
 
     if (reset) document.getElementById("imageInput").value = "";
     myMap.setView([11.63523, 123.7079], 5);
+
+    d3.select("#nodeGraph").selectAll("*").remove();
+
 }
 
 </script>
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./service-worker.js')
-      .then(reg => console.log('Service Worker registered:', reg.scope))
-      .catch(err => console.error('Service Worker failed:', err));
-  });
-}
-</script>
-
 </body>
 </html>
