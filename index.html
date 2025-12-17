@@ -172,13 +172,49 @@ function updateTimeDiff() {
     const arr = photoList.toArray().filter(p => p.dateObj);
     if (arr.length < 2) return;
 
-    arr.sort((a,b) => a.dateObj - b.dateObj);
-    const diff = Math.abs(arr[arr.length-1].dateObj - arr[0].dateObj);
-    const mins = Math.floor(diff / 60000);
+    arr.sort((a, b) => a.dateObj - b.dateObj);
+    const diffMs = Math.abs(arr[arr.length - 1].dateObj - arr[0].dateObj);
 
-    document.getElementById("timeDifference").innerText = mins + " minutes";
+    let remaining = diffMs;
+
+    const msPerMinute = 60 * 1000;
+    const msPerHour = 60 * msPerMinute;
+    const msPerDay = 24 * msPerHour;
+    const msPerWeek = 7 * msPerDay;
+    const msPerMonth = 30 * msPerDay; // approximate
+    const msPerYear = 365 * msPerDay; // approximate
+
+    const years = Math.floor(remaining / msPerYear);
+    remaining %= msPerYear;
+
+    const months = Math.floor(remaining / msPerMonth);
+    remaining %= msPerMonth;
+
+    const weeks = Math.floor(remaining / msPerWeek);
+    remaining %= msPerWeek;
+
+    const days = Math.floor(remaining / msPerDay);
+    remaining %= msPerDay;
+
+    const hours = Math.floor(remaining / msPerHour);
+    remaining %= msPerHour;
+
+    const minutes = Math.floor(remaining / msPerMinute);
+
+    const parts = [];
+    if (years) parts.push(`${years} year${years > 1 ? 's' : ''}`);
+    if (months) parts.push(`${months} month${months > 1 ? 's' : ''}`);
+    if (weeks) parts.push(`${weeks} week${weeks > 1 ? 's' : ''}`);
+    if (days) parts.push(`${days} day${days > 1 ? 's' : ''}`);
+    if (hours) parts.push(`${hours} hour${hours > 1 ? 's' : ''}`);
+    if (minutes) parts.push(`${minutes} mins${minutes > 1 ? 's' : ''}`);
+
+    const formatted = parts.join(' ') || '0 min';
+
+    document.getElementById("timeDifference").innerText = formatted;
     document.getElementById("timeInfo").style.display = "block";
 }
+
 
 /* ================= CLEAR ================= */
 
