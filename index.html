@@ -16,79 +16,7 @@
 
     <script src="https://d3js.org/d3.v7.min.js"></script>
 
-
-    <style>
-        .main {
-            width: 95%;
-            margin-left: 3%;
-            justify-content: center;
-        }
-        .image-preview {
-            width: 200px;
-        }
-        .image-section {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-        }
-        #photoCards {
-            max-height: 500px;
-            overflow-y: auto;
-            margin-top: 15px;
-            padding: 10px;
-        }
-        .photo-card {
-            cursor: pointer;
-            margin-bottom: 10px;
-            padding: 10px;
-            transition: all 0.2s;
-        }
-        .photo-card:hover {
-            background-color: #f8f9fa;
-        }
-        .photo-card img {
-            width: 100%;
-            height: auto;
-            border-radius: 3px;
-        }
-        .photo-card.active {
-            background-color: #e9f7fe;
-            border-color: #86b7fe;
-        }
-        .path-info {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-radius: 5px;
-        }
-        #map {
-            height: 500px;
-        }
-        .time-info {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-radius: 5px;
-        }
-        .loading-spinner {
-            display: none;
-            margin-top: 10px;
-        }
-        .fixed-img {
-            width: 100%;
-            height: 150px;
-            object-fit: cover;
-        }
-
-        @media (min-width: 768px) {
-            .fixed-img {
-            height: 200px;
-            }
-        }
-                
-    </style>
+    <link href="style.css" rel="stylesheet">
 </head>
 
 <body>
@@ -191,6 +119,7 @@ class PhotoLinkedList {
         const node = new PhotoNode(photo);
         if (!this.head) {
             this.head = node;
+            console.log("Added photo node");
         } else {
             let cur = this.head;
             while (cur.next) cur = cur.next;
@@ -206,6 +135,7 @@ class PhotoLinkedList {
             const removed = this.head.data;
             this.head = null;
             this.length--;
+            console.log("Removed photo node");
             return removed;
         }
 
@@ -247,7 +177,7 @@ class PhotoLinkedList {
     }
 }
 
-/* ================= GLOBALS ================= */
+//Globals
 
 const photoList = new PhotoLinkedList();
 const undoStack = [];
@@ -259,7 +189,7 @@ let areaPolygon = null;
 const myMap = L.map('map').setView([11.63523, 123.7079], 5);
 const spinner = document.getElementById("loadingSpinner");
 
-/* ================= MAP ================= */
+//Map
 
 function initMap() {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -269,7 +199,7 @@ function initMap() {
 
 document.addEventListener("DOMContentLoaded", initMap);
 
-/* ================= IMAGE INPUT ================= */
+//Image Input
 
 async function handleImageInput(input) {
     if (!input.files.length) return;
@@ -330,7 +260,7 @@ function processImage(file) {
     });
 }
 
-/* ================= UNDO / REDO ================= */
+// Stack Undo Redo
 
 function undoAdd() {
     if (!undoStack.length) return;
@@ -339,6 +269,7 @@ function undoAdd() {
     if (!removed) return;
 
     redoStack.push(removed);
+    console.log("Removed photo node from stack");
     refreshUI();
 }
 
@@ -348,10 +279,11 @@ function redoAdd() {
     const photo = redoStack.pop();
     photoList.insert(photo);
     undoStack.push(photo);
+    console.log("Added photo node to stack");
     refreshUI();
 }
 
-/* ================= UI ================= */
+//UI
 
 function refreshUI() {
     updatePhotoCards();
@@ -391,7 +323,7 @@ function updatePhotoCards() {
     });
 }
 
-/* ================= MAP DRAW ================= */
+//Map Draw
 
 function focusOnPhoto(id) {
     const p = photoList.findById(id);
@@ -480,7 +412,7 @@ function convexHull(points) {
 }
 
 
-/* ================= TIME ================= */
+// Time
 
 function updateTimeDiff() {
     const arr = photoList.toArray().filter(p => p.dateObj);
@@ -494,7 +426,7 @@ function updateTimeDiff() {
     document.getElementById("timeInfo").style.display = "block";
 }
 
-/* ================= CLEAR ================= */
+// Reset Map
 
 function clearMap(reset = true) {
     markers.forEach(m => myMap.removeLayer(m));
