@@ -100,12 +100,13 @@ if ('serviceWorker' in navigator) {
 }*/
 </script>
 <script src="photo-node.js"></script>
+<script src="stack.js"></script>
+<script src="time-diff.js"></script>
 <script>
 console.log("Script Added");
 
 
 //Globals
-
 const photoList = new PhotoLinkedList();
 const undoStack = [];
 const redoStack = [];
@@ -117,7 +118,6 @@ const myMap = L.map('map').setView([11.63523, 123.7079], 5);
 const spinner = document.getElementById("loadingSpinner");
 
 //Map
-
 function initMap() {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19
@@ -187,31 +187,8 @@ function processImage(file) {
     });
 }
 
-// Stack Undo Redo
-
-function undoAdd() {
-    if (!undoStack.length) return;
-
-    const removed = photoList.removeLast();
-    if (!removed) return;
-
-    redoStack.push(removed);
-    console.log("Removed photo node from stack");
-    refreshUI();
-}
-
-function redoAdd() {
-    if (!redoStack.length) return;
-
-    const photo = redoStack.pop();
-    photoList.insert(photo);
-    undoStack.push(photo);
-    console.log("Added photo node to stack");
-    refreshUI();
-}
 
 //UI
-
 function refreshUI() {
     updatePhotoCards();
     drawPaths();
@@ -251,7 +228,6 @@ function updatePhotoCards() {
 }
 
 //Map Draw
-
 function focusOnPhoto(id) {
     const p = photoList.findById(id);
     if (!p) return;
@@ -336,42 +312,6 @@ function convexHull(points) {
     upper.pop();
     lower.pop();
     return lower.concat(upper);
-}
-
-
-// Time
-
-function updateTimeDiff() {
-    const arr = photoList.toArray().filter(p => p.dateObj);
-    if (arr.length < 2) return;
-
-    arr.sort((a, b) => a.dateObj - b.dateObj);
-
-    const diffMs = Math.abs(arr[arr.length - 1].dateObj - arr[0].dateObj);
-
-    document.getElementById("timeDifference").innerText =
-        formatDuration(diffMs);
-
-    document.getElementById("timeInfo").style.display = "block";
-}
-
-function formatDuration(ms) {
-    const totalMinutes = Math.floor(ms / 60000);
-    const minutes = totalMinutes % 60;
-
-    const totalHours = Math.floor(totalMinutes / 60);
-    const hours = totalHours % 24;
-
-    const days = Math.floor(totalHours / 24);
-
-    let parts = [];
-
-    if (days > 0) parts.push(`${days} day${days !== 1 ? "s" : ""}`);
-    if (hours > 0) parts.push(`${hours} hour${hours !== 1 ? "s" : ""}`);
-    if (minutes > 0 || parts.length === 0)
-        parts.push(`${minutes} minute${minutes !== 1 ? "s" : ""}`);
-
-    return parts.join(" ");
 }
 
 
