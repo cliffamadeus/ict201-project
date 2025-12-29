@@ -1,5 +1,3 @@
-
-
 // Time
 function updateTimeDiff() {
     const arr = photoList.toArray().filter(p => p.dateObj);
